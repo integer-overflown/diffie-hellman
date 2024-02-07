@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.23)
 project(lab4_diffie_hellman)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -13,5 +13,5 @@ find_package(Qt6 COMPONENTS
 
 add_executable(lab4_diffie_hellman main.cpp)
 target_link_libraries(lab4_diffie_hellman
-        Qt::Core
+        Qt6::Core
 )
