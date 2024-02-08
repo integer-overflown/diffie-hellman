@@ -7,11 +7,15 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-find_package(Qt6 COMPONENTS
-        Core
-        REQUIRED)
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
+
+include(FindDeps)
 
 add_executable(lab4_diffie_hellman main.cpp)
 target_link_libraries(lab4_diffie_hellman
         Qt6::Core
 )
+
+add_subdirectory(src)
+
+target_link_libraries(lab4_diffie_hellman diffie_hellman)
