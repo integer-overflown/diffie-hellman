@@ -1,1 +1,3 @@
-add_subdirectory(diffie-hellman)
+add_subdirectory(lib)
+add_subdirectory(client)
+add_subdirectory(server)

@@ -6,5 +6,8 @@ qt/6.6.1
 CMakeDeps
 CMakeToolchain
 
+[options]
+qt/6.6.1:qtwebsockets=True
+
 [layout]
 cmake_layout
