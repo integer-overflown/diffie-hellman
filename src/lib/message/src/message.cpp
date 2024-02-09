@@ -3,14 +3,10 @@
 #include <QJsonDocument>
 #include <QLoggingCategory>
 
+#include "logging.h"
 #include "parsing_utils.h"
 
 namespace lab4::message {
-
-namespace logging {
-Q_LOGGING_CATEGORY(serialization, "message.serialization")
-Q_LOGGING_CATEGORY(trace, "message.trace", QtCriticalMsg)
-}
 
 namespace {
 auto
@@ -63,6 +59,23 @@ CryptoSetup::toJsonObject() const
   return body("CRYPTO_SETUP",
               { { "g", QString::fromStdString(to_string(g)) },
                 { "n", QString::fromStdString(to_string(n)) } });
+}
+
+serialization::DeserializeResult<Error>
+Error::fromJsonObject(const QJsonObject& object)
+{
+  Error value;
+
+  PARSE_REQUIRED_FIELD_OR_ELSE_ERROR(
+    value.description, object, "description", String);
+
+  return value;
+}
+
+serialization::SerializeResult
+Error::toJsonObject() const
+{
+  return body("ERROR", { { "description", description } });
 }
 
 }

@@ -3,6 +3,12 @@
 #include <QLoggingCategory>
 #include <QWebSocket>
 
+#include "Message/message.h"
+#include "Message/network.h"
+#include "Message/parsing.h"
+
+#include "crypto_config.h"
+
 namespace lab4::service {
 
 namespace logging {
@@ -20,9 +26,26 @@ Service::Service(QObject* parent)
                    &Service::handleNewConnection);
 }
 
+bool
+Service::listen(qint16 port)
+{
+  const bool ret = _server.listen(QHostAddress::Any, port);
+
+  if (!ret) {
+    qCCritical(logging::service())
+      << "Cannot start listening:" << _server.errorString();
+    return false;
+  }
+
+  qCDebug(logging::service()) << "Listening on" << _server.serverUrl();
+  return true;
+}
+
 void
 Service::handleNewConnection()
 {
+  qCDebug(logging::service()) << "Have new connection";
+
   auto* newConnection = _server.nextPendingConnection();
 
   QObject::connect(newConnection,
@@ -45,9 +68,40 @@ Service::handleNewConnection()
     });
 }
 
+template<typename Any>
 void
-Service::handleMessage(QWebSocket* sender, const QString& message)
+Service::MessageHandler::operator()(const Any&)
 {
+  qCWarning(logging::service())
+    << "Cannot handle message of type" << Any::SerializedName;
+}
+
+void
+Service::MessageHandler::operator()(const message::Hello& message)
+{
+  qCDebug(logging::service()) << "Received Hello from" << message.selfId;
+
+  service->_users.emplace(connection, message.selfId);
+
+  const auto& config = crypto_config::loadDefault();
+  message::sendMessage(connection,
+                       message::CryptoSetup{ .g = config.g, .n = config.n });
+}
+
+void
+Service::handleMessage(QWebSocket* sender, const QString& payload)
+{
+  auto parseResult = message::parse(payload);
+
+  if (auto* err = std::get_if<message::ParseError>(&parseResult)) {
+    qCWarning(logging::service()) << "Could not parse message:" << *err;
+    message::sendError(sender, *err);
+    return;
+  }
+
+  auto& message = std::get<message::Message>(parseResult);
+
+  std::visit(MessageHandler{ this, sender }, message);
 }
 
 void
@@ -63,7 +117,7 @@ Service::removeConnection(QWebSocket* connection)
     return;
   }
 
-  const auto &id = it->second;
+  const auto& id = it->second;
 
   qCDebug(logging::service()) << "Peer ID was" << id;
 

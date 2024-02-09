@@ -5,4 +5,4 @@ add_library(diffie_hellman
 
 target_include_directories(diffie_hellman PUBLIC include PRIVATE include/DiffieHellman)
 
-target_link_libraries(diffie_hellman PUBLIC Boost::boost)
+target_link_libraries(diffie_hellman PUBLIC Boost::headers)

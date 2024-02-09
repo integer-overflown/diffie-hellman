@@ -17,7 +17,8 @@
   fromJsonObject(const QJsonObject& object);
 
 #define SERIALIZE_TO_JSON(value)                                               \
-  ::lab4::message::serialization::JsonSerializer::serialize(value)
+  ::lab4::message::serialization::JsonSerializer<decltype(value)>::serialize(  \
+    value)
 
 #define DESERIALIZE_FROM_JSON(object, type)                                    \
   ::lab4::message::serialization::JsonDeserializer<type>::deserialize(object)
@@ -38,6 +39,11 @@ public:
 
   [[nodiscard]] QString cause() const { return _cause; }
 
+  friend QDebug& operator<<(QDebug& out, const StringError& value)
+  {
+    return out << value.cause();
+  }
+
 private:
   QString _cause;
 };
@@ -54,7 +60,7 @@ concept JsonSerializable = requires(T t) {
   } -> std::same_as<SerializeResult>;
   {
     T::SerializedName
-  } -> std::same_as<const char*>;
+  } -> std::convertible_to<const char*>;
 };
 
 template<typename T>

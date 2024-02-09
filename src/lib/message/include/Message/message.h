@@ -9,24 +9,29 @@
 
 namespace lab4::message {
 
-class Hello
+struct Hello
 {
   JSON_SERIALIZABLE_TYPE(Hello)
 
-public:
   QString selfId;
 };
 
-class CryptoSetup
+struct CryptoSetup
 {
   JSON_SERIALIZABLE_TYPE(CryptoSetup)
 
-public:
   boost::multiprecision::cpp_int g;
   boost::multiprecision::cpp_int n;
 };
 
-using Message = std::variant<Hello, CryptoSetup>;
+struct Error
+{
+  JSON_SERIALIZABLE_TYPE(Error)
+
+  QString description;
+};
+
+using Message = std::variant<Hello, CryptoSetup, Error>;
 
 }
 
