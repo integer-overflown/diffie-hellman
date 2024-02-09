@@ -31,7 +31,12 @@ struct Error
   QString description;
 };
 
-using Message = std::variant<Hello, CryptoSetup, Error>;
+struct ComputeKey
+{
+  JSON_SERIALIZABLE_TYPE(ComputeKey)
+};
+
+using Message = std::variant<Hello, CryptoSetup, Error, ComputeKey>;
 
 }
 

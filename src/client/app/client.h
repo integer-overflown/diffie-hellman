@@ -36,6 +36,8 @@ private:
 
     void operator()(const message::CryptoSetup& message);
 
+    void operator()(const message::Error& message);
+
     template<typename Any>
     void operator()(const Any& message);
   };

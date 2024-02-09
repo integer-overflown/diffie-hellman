@@ -70,22 +70,41 @@ Service::handleNewConnection()
 
 template<typename Any>
 void
-Service::MessageHandler::operator()(const Any&)
+Service::MessageHandler::operator()(const Any&) const
 {
   qCWarning(logging::service())
     << "Cannot handle message of type" << Any::SerializedName;
 }
 
 void
-Service::MessageHandler::operator()(const message::Hello& message)
+Service::MessageHandler::operator()(const message::Hello& message) const
 {
   qCDebug(logging::service()) << "Received Hello from" << message.selfId;
 
-  service->_users.emplace(connection, message.selfId);
+  if (!service->registerConnection(connection, message.selfId)) {
+    message::sendError(
+      connection,
+      QStringLiteral("Name '%1' is already registered").arg(message.selfId));
+    return;
+  }
 
   const auto& config = crypto_config::loadDefault();
   message::sendMessage(connection,
                        message::CryptoSetup{ .g = config.g, .n = config.n });
+
+  const auto& peers = service->_state.peers;
+
+  if (peers.size() < 2) {
+    return;
+  }
+
+  qCDebug(logging::service())
+    << "Starting handshake for" << peers.size() << "users";
+
+  for (const auto& [peer, socket] : peers) {
+    qCDebug(logging::service()) << "Sending COMPUTE_KEY to" << peer;
+    message::sendMessage(socket, message::ComputeKey{});
+  }
 }
 
 void
@@ -104,14 +123,32 @@ Service::handleMessage(QWebSocket* sender, const QString& payload)
   std::visit(MessageHandler{ this, sender }, message);
 }
 
+bool
+Service::registerConnection(QWebSocket* connection, const QString& peerId)
+{
+  qCDebug(logging::service())
+    << "Assigning connection" << connection << "to peer" << peerId;
+
+  if (_state.peers.contains(peerId)) {
+    qCDebug(logging::service())
+      << "Peer name" << peerId << "is already registered";
+    return false;
+  }
+
+  _state.peers.emplace(peerId, connection);
+  _state.connections.emplace(connection, peerId);
+  return true;
+}
+
 void
 Service::removeConnection(QWebSocket* connection)
 {
   qCDebug(logging::service()) << "Removing connection" << connection;
 
-  auto it = _users.find(connection);
+  auto& [connections, peers] = _state;
+  auto it = connections.find(connection);
 
-  if (it == _users.end()) {
+  if (it == connections.end()) {
     qCDebug(logging::service()) << "Connection hasn't been registered";
     connection->deleteLater();
     return;
@@ -122,7 +159,8 @@ Service::removeConnection(QWebSocket* connection)
   qCDebug(logging::service()) << "Peer ID was" << id;
 
   connection->deleteLater();
-  _users.erase(it);
+  peers.erase(id);
+  connections.erase(it);
 }
 
 void

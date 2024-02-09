@@ -15,6 +15,8 @@ set(SOURCES
 set(PRIVATE_HEADERS
         src/logging.h
         src/parsing_utils.h
+        src/registry.h
+        src/registry.cpp
 )
 
 add_library(message

@@ -2,6 +2,7 @@
 
 #include "logging.h"
 #include "parsing_utils.h"
+#include "registry.h"
 
 namespace lab4::message {
 
@@ -45,39 +46,22 @@ operator<<(QDebug& out, const ParseError& value)
 
 namespace {
 
-#define MATCH_TYPE(string, type)                                               \
-  {                                                                            \
-    u##string##_s, [](const QJsonObject& obj) -> RetType {                     \
-      return convert(DESERIALIZE_FROM_JSON(obj, type));                        \
-    }                                                                          \
-  }
-
-template<typename T>
-auto
-convert(const serialization::DeserializeResult<T>& variant)
-  -> std::variant<Message, serialization::StringError>
-{
-  if (auto* err = std::get_if<serialization::StringError>(&variant)) {
-    return *err;
-  }
-
-  return Message{ std::get<T>(variant) };
-};
-
 std::variant<Message, serialization::StringError>
 parseMessage(const QString& type, const QJsonObject& payload)
 {
-  using namespace Qt::StringLiterals;
-  using RetType = std::variant<Message, serialization::StringError>;
-  using ParseFn = RetType (*)(const QJsonObject&);
+  const auto& registry = registry::load();
+  auto it = registry.find(type);
 
-  static std::unordered_map<QString, ParseFn> typeMap = {
-    MATCH_TYPE("HELLO", Hello),
-    MATCH_TYPE("CRYPTO_SETUP", CryptoSetup),
-  };
+  if (it == registry.end()) {
+    auto message = QStringLiteral("Unknown message type: '%1'").arg(type);
+    return serialization::StringError{ message };
+  }
 
-  return typeMap[type](payload);
+  const auto& parseFn = it->second;
+
+  return parseFn(payload);
 }
+
 }
 
 ParseResult

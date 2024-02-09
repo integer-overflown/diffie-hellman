@@ -1,6 +1,9 @@
 #ifndef LAB4_DIFFIE_HELLMAN_SERVICE_H
 #define LAB4_DIFFIE_HELLMAN_SERVICE_H
 
+#include <map>
+#include <unordered_map>
+
 #include <QObject>
 #include <QWebSocketServer>
 
@@ -25,6 +28,8 @@ private:
   void handleDisconnect(QWebSocket* sender);
   void handleError(QWebSocket* sender, QAbstractSocket::SocketError error);
 
+  [[nodiscard]] bool registerConnection(QWebSocket* connection,
+                                        const QString& peerId);
   void removeConnection(QWebSocket* connection);
 
   friend struct MessageHandler;
@@ -34,14 +39,19 @@ private:
     Service* service;
     QWebSocket* connection;
 
-    void operator()(const message::Hello& message);
+    void operator()(const message::Hello& message) const;
 
     template<typename Any>
-    void operator()(const Any&);
+    void operator()(const Any&) const;
   };
 
   QWebSocketServer _server;
-  std::unordered_map<QWebSocket*, QString> _users;
+
+  struct
+  {
+    std::unordered_map<QWebSocket*, QString> connections;
+    std::map<QString, QWebSocket*> peers;
+  } _state;
 };
 
 }

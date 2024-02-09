@@ -11,7 +11,7 @@ namespace lab4::message {
 namespace {
 auto
 body(const QString& messageType,
-     std::initializer_list<QPair<QString, QJsonValue>> args)
+     std::initializer_list<QPair<QString, QJsonValue>> args = {})
 {
   QJsonObject obj(args);
   obj["type"] = messageType;
@@ -76,6 +76,18 @@ serialization::SerializeResult
 Error::toJsonObject() const
 {
   return body("ERROR", { { "description", description } });
+}
+
+serialization::SerializeResult
+ComputeKey::toJsonObject() const
+{
+  return body("COMPUTE_KEY");
+}
+
+serialization::DeserializeResult<ComputeKey>
+ComputeKey::fromJsonObject([[maybe_unused]] const QJsonObject& object)
+{
+  return ComputeKey{};
 }
 
 }

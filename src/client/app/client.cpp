@@ -70,6 +70,13 @@ Client::MessageHandler::operator()(const message::CryptoSetup& message)
 }
 
 void
+Client::MessageHandler::operator()(const message::Error& message)
+{
+  qCCritical(logging::client())
+    << "Received error from server:" << message.description;
+}
+
+void
 Client::handleIncomingMessage(const QString& payload)
 {
   auto parseResult = message::parse(payload);
