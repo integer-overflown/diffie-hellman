@@ -1,7 +1,5 @@
 #include "diffie_hellman.h"
 
-#include <iostream>
-
 namespace lab4::diffie_hellman
 {
 
