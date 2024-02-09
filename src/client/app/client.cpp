@@ -90,6 +90,16 @@ struct Client::MessageHandler
       .key = diffie_hellman::calculateKey(client->_dhConfig) });
   }
 
+  void operator()(const message::IntermediateKey& message)
+  {
+    qDebug(logging::client()) << "Received IntermediateKey";
+    client->sendMessage(message::IntermediateKey{
+      .correlationId = message.correlationId,
+      .key = diffie_hellman::calculateKey({ .g = message.key,
+                                            .n = client->_dhConfig.n,
+                                            .exp = client->_dhConfig.exp }) });
+  }
+
   void operator()(const message::FinalKey& message)
   {
     qDebug(logging::client()) << "Received FinalKey";

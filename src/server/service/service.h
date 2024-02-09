@@ -44,7 +44,7 @@ private:
     std::map<QString, QWebSocket*> peers;
   } _state;
 
-  std::unordered_map<QString, std::set<QString>> _negotiationPaths;
+  std::unordered_map<QString, std::vector<QString>> _keyExchangeMap;
 };
 
 }

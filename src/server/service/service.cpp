@@ -18,13 +18,14 @@ Q_LOGGING_CATEGORY(service, "service")
 namespace {
 
 template<typename Key, typename Value>
-std::set<Key>
-keySet(const std::map<Key, Value>& map)
+std::vector<Key>
+keyVector(const std::map<Key, Value>& map)
 {
-  std::set<Key> res;
+  std::vector<Key> res;
+  res.reserve(map.size());
 
   for (const auto& [key, _] : map) {
-    res.insert(key);
+    res.push_back(key);
   }
 
   return res;
@@ -34,6 +35,27 @@ QString
 makeCorrelationId(const QString& peerId)
 {
   return "correlation-" + peerId;
+}
+
+std::unordered_map<QString, std::vector<QString>>
+generateKeyExchangeMap(std::vector<QString> peers)
+{
+  std::unordered_map<QString, std::vector<QString>> result;
+  std::vector<QString> chain;
+
+  chain.resize(peers.size() - 1);
+
+  for (auto i = 0; i < peers.size(); ++i) {
+    auto key = makeCorrelationId(peers[i]);
+
+    for (auto j = 0; j < chain.size(); ++j) {
+      chain[j] = peers[(i + j + 1) % peers.size()];
+    }
+
+    result.emplace(key, chain);
+  }
+
+  return result;
 }
 
 }
@@ -127,7 +149,13 @@ struct Service::MessageHandler
     qCDebug(logging::service())
       << "Starting handshake for" << peers.size() << "users";
 
-    auto allPeers = keySet(peers);
+    service->_keyExchangeMap = generateKeyExchangeMap(keyVector(peers));
+
+    qCDebug(logging::service()) << "-- begin: key exchange map dump --";
+    for (const auto& [key, path] : service->_keyExchangeMap) {
+      qCDebug(logging::service()) << key << ':' << path;
+    }
+    qCDebug(logging::service()) << "-- end: key exchange map dump --";
 
     for (const auto& [peer, socket] : peers) {
       qCDebug(logging::service()) << "Sending COMPUTE_KEY to" << peer;
@@ -136,11 +164,6 @@ struct Service::MessageHandler
 
       message::sendMessage(
         socket, message::ComputeKey{ .correlationId = correlationId });
-
-      auto path = allPeers;
-      path.erase(peer);
-
-      service->_negotiationPaths.emplace(correlationId, std::move(path));
     }
   }
 
@@ -162,9 +185,9 @@ struct Service::MessageHandler
     qCDebug(logging::service())
       << "Got intermediate key in correlation" << message.correlationId;
 
-    auto pathIt = service->_negotiationPaths.find(message.correlationId);
+    auto pathIt = service->_keyExchangeMap.find(message.correlationId);
 
-    if (pathIt == service->_negotiationPaths.end()) {
+    if (pathIt == service->_keyExchangeMap.end()) {
       qCDebug(logging::service())
         << "No path registered for correlation" << message.correlationId;
       message::sendError(connection,
@@ -193,7 +216,7 @@ struct Service::MessageHandler
       qCDebug(logging::service()) << "Peer" << nextPeer << "is a final peer";
       message::sendMessage(nextPeerConnection->second,
                            message::FinalKey{ .key = message.key });
-      service->_negotiationPaths.erase(pathIt);
+      service->_keyExchangeMap.erase(pathIt);
     } else {
       qCDebug(logging::service())
         << "Continuing negotiation, peers left:" << chain.size();
@@ -256,7 +279,7 @@ Service::removeConnection(QWebSocket* connection)
   connection->deleteLater();
   peers.erase(id);
   connections.erase(it);
-  _negotiationPaths.erase(id);
+  _keyExchangeMap.erase(id);
 }
 
 void
