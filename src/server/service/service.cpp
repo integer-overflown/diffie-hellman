@@ -15,6 +15,29 @@ namespace logging {
 Q_LOGGING_CATEGORY(service, "service")
 }
 
+namespace {
+
+template<typename Key, typename Value>
+std::set<Key>
+keySet(const std::map<Key, Value>& map)
+{
+  std::set<Key> res;
+
+  for (const auto& [key, _] : map) {
+    res.insert(key);
+  }
+
+  return res;
+}
+
+QString
+makeCorrelationId(const QString& peerId)
+{
+  return "correlation-" + peerId;
+}
+
+}
+
 Service::Service(QObject* parent)
   : QObject(parent)
   // We use custom encryption, so standard security is turned off
@@ -104,9 +127,77 @@ struct Service::MessageHandler
     qCDebug(logging::service())
       << "Starting handshake for" << peers.size() << "users";
 
+    auto allPeers = keySet(peers);
+
     for (const auto& [peer, socket] : peers) {
       qCDebug(logging::service()) << "Sending COMPUTE_KEY to" << peer;
-      message::sendMessage(socket, message::ComputeKey{});
+
+      auto correlationId = makeCorrelationId(peer);
+
+      message::sendMessage(
+        socket, message::ComputeKey{ .correlationId = correlationId });
+
+      auto path = allPeers;
+      path.erase(peer);
+
+      service->_negotiationPaths.emplace(correlationId, std::move(path));
+    }
+  }
+
+  void operator()(const message::IntermediateKey& message)
+  {
+    const auto& [connections, peers] = service->_state;
+
+    auto it = connections.find(connection);
+
+    if (it == connections.end()) {
+      qCDebug(logging::service()) << "Peer hasn't been registered yet";
+      message::sendError(connection,
+                         "Invalid operation: you haven't authorized first: "
+                         "make sure to initiate the communication with HELLO "
+                         "message before any other message is sent");
+      return;
+    }
+
+    qCDebug(logging::service())
+      << "Got intermediate key in correlation" << message.correlationId;
+
+    auto pathIt = service->_negotiationPaths.find(message.correlationId);
+
+    if (pathIt == service->_negotiationPaths.end()) {
+      qCDebug(logging::service())
+        << "No path registered for correlation" << message.correlationId;
+      message::sendError(connection,
+                         "Invalid operation: negotiation is already completed");
+      return;
+    }
+
+    auto& chain = pathIt->second;
+    Q_ASSERT(!chain.empty()); // a paranoid check, this should be ensured by the
+                              // protocol already
+
+    auto nextPeer = *chain.begin();
+    qCDebug(logging::service()) << "Next peer is" << nextPeer;
+
+    chain.erase(chain.begin());
+
+    auto nextPeerConnection = peers.find(nextPeer);
+
+    if (nextPeerConnection == peers.end()) {
+      qCWarning(logging::service())
+        << "Broken invariant: cannot find connection assigned to" << nextPeer;
+      return;
+    }
+
+    if (chain.empty()) {
+      qCDebug(logging::service()) << "Peer" << nextPeer << "is a final peer";
+      message::sendMessage(nextPeerConnection->second,
+                           message::FinalKey{ .key = message.key });
+      service->_negotiationPaths.erase(pathIt);
+    } else {
+      qCDebug(logging::service())
+        << "Continuing negotiation, peers left:" << chain.size();
+      message::sendMessage(nextPeerConnection->second, message);
     }
   }
 };
@@ -165,6 +256,7 @@ Service::removeConnection(QWebSocket* connection)
   connection->deleteLater();
   peers.erase(id);
   connections.erase(it);
+  _negotiationPaths.erase(id);
 }
 
 void

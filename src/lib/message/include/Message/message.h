@@ -34,17 +34,27 @@ struct Error
 struct ComputeKey
 {
   JSON_SERIALIZABLE_TYPE(ComputeKey)
+
+  QString correlationId;
 };
 
 struct IntermediateKey
 {
-  boost::multiprecision::cpp_int key;
-
   JSON_SERIALIZABLE_TYPE(IntermediateKey)
+
+  QString correlationId;
+  boost::multiprecision::cpp_int key;
 };
 
-using Message =
-  std::variant<Hello, CryptoSetup, Error, ComputeKey, IntermediateKey>;
+struct FinalKey
+{
+  JSON_SERIALIZABLE_TYPE(FinalKey)
+
+  boost::multiprecision::cpp_int key;
+};
+
+using Message = std::
+  variant<Hello, CryptoSetup, Error, ComputeKey, IntermediateKey, FinalKey>;
 
 }
 

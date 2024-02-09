@@ -34,6 +34,7 @@ load()
     MATCH_TYPE("ERROR", Error),
     MATCH_TYPE("COMPUTE_KEY", ComputeKey),
     MATCH_TYPE("INTERMEDIATE_KEY", IntermediateKey),
+    MATCH_TYPE("FINAL_KEY", FinalKey),
   };
 
   return registry;

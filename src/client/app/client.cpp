@@ -82,11 +82,22 @@ struct Client::MessageHandler
       << "Received error from server:" << message.description;
   }
 
-  void operator()(const message::ComputeKey&)
+  void operator()(const message::ComputeKey& message)
   {
     qDebug(logging::client()) << "Received ComputeKey";
     client->sendMessage(message::IntermediateKey{
+      .correlationId = message.correlationId,
       .key = diffie_hellman::calculateKey(client->_dhConfig) });
+  }
+
+  void operator()(const message::FinalKey& message)
+  {
+    qDebug(logging::client()) << "Received FinalKey";
+    auto key = diffie_hellman::calculateKey({ .g = message.key,
+                                              .n = client->_dhConfig.n,
+                                              .exp = client->_dhConfig.exp });
+
+    qDebug(logging::client()) << "Secret key is" << to_string(key);
   }
 };
 

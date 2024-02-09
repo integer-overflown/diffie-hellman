@@ -2,6 +2,7 @@
 #define LAB4_DIFFIE_HELLMAN_SERVICE_H
 
 #include <map>
+#include <set>
 #include <unordered_map>
 
 #include <QObject>
@@ -42,6 +43,8 @@ private:
     std::unordered_map<QWebSocket*, QString> connections;
     std::map<QString, QWebSocket*> peers;
   } _state;
+
+  std::unordered_map<QString, std::set<QString>> _negotiationPaths;
 };
 
 }

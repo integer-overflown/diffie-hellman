@@ -6,6 +6,8 @@
 #include "logging.h"
 #include "parsing_utils.h"
 
+namespace mp = boost::multiprecision;
+
 namespace lab4::message {
 
 namespace {
@@ -41,7 +43,7 @@ CryptoSetup::fromJsonObject(const QJsonObject& object)
   QString g;
   QString n;
 
-  namespace mp = boost::multiprecision;
+  namespace mp = mp;
 
   PARSE_REQUIRED_FIELD_OR_ELSE_ERROR(g, object, "g", String);
   PARSE_REQUIRED_FIELD_OR_ELSE_ERROR(n, object, "n", String);
@@ -81,29 +83,63 @@ Error::toJsonObject() const
 serialization::SerializeResult
 ComputeKey::toJsonObject() const
 {
-  return body("COMPUTE_KEY");
+  if (correlationId.isEmpty()) {
+    return serialization::StringError("correlationId must be set");
+  }
+
+  return body("COMPUTE_KEY", { { "correlationId", correlationId } });
 }
 
 serialization::DeserializeResult<ComputeKey>
 ComputeKey::fromJsonObject([[maybe_unused]] const QJsonObject& object)
 {
-  return ComputeKey{};
+  ComputeKey value;
+
+  PARSE_REQUIRED_FIELD_OR_ELSE_ERROR(
+    value.correlationId, object, "correlationId", String);
+
+  return value;
 }
 
 serialization::DeserializeResult<IntermediateKey>
 IntermediateKey::fromJsonObject(const QJsonObject& object)
 {
   QString value;
-  PARSE_REQUIRED_FIELD_OR_ELSE_ERROR(value, object, "key", String);
+  QString correlationId;
 
-  return IntermediateKey{ .key = boost::multiprecision::cpp_int{
-                            value.toUtf8().constData() } };
+  PARSE_REQUIRED_FIELD_OR_ELSE_ERROR(value, object, "key", String);
+  PARSE_REQUIRED_FIELD_OR_ELSE_ERROR(
+    correlationId, object, "correlationId", String);
+
+  return IntermediateKey{ .correlationId = correlationId,
+                          .key = mp::cpp_int{ value.toUtf8().constData() } };
 }
 
 serialization::SerializeResult
 IntermediateKey::toJsonObject() const
 {
+  if (correlationId.isEmpty()) {
+    return serialization::StringError("correlationId must be set");
+  }
+
   return body("INTERMEDIATE_KEY",
+              { { "correlationId", correlationId },
+                { "key", QString::fromStdString(to_string(key)) } });
+}
+
+serialization::DeserializeResult<FinalKey>
+FinalKey::fromJsonObject(const QJsonObject& object)
+{
+  QString value;
+  PARSE_REQUIRED_FIELD_OR_ELSE_ERROR(value, object, "key", String);
+
+  return FinalKey{ .key = mp::cpp_int{ value.toUtf8().constData() } };
+}
+
+serialization::SerializeResult
+FinalKey::toJsonObject() const
+{
+  return body("FINAL_KEY",
               { { "key", QString::fromStdString(to_string(key)) } });
 }
 
