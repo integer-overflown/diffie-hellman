@@ -32,18 +32,8 @@ private:
                                         const QString& peerId);
   void removeConnection(QWebSocket* connection);
 
+  struct MessageHandler;
   friend struct MessageHandler;
-
-  struct MessageHandler
-  {
-    Service* service;
-    QWebSocket* connection;
-
-    void operator()(const message::Hello& message) const;
-
-    template<typename Any>
-    void operator()(const Any&) const;
-  };
 
   QWebSocketServer _server;
 

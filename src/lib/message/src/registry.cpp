@@ -33,6 +33,7 @@ load()
     MATCH_TYPE("CRYPTO_SETUP", CryptoSetup),
     MATCH_TYPE("ERROR", Error),
     MATCH_TYPE("COMPUTE_KEY", ComputeKey),
+    MATCH_TYPE("INTERMEDIATE_KEY", IntermediateKey),
   };
 
   return registry;

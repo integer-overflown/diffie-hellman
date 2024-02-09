@@ -7,7 +7,9 @@
 
 #include <queue>
 
+#include "DiffieHellman/diffie_hellman.h"
 #include "Message/message.h"
+#include "crypto_config.h"
 
 namespace lab4::app::client {
 
@@ -28,19 +30,8 @@ private:
 
   void onConnectionStateChanged(QAbstractSocket::SocketState state);
 
+  struct MessageHandler;
   friend struct MessageHandler;
-
-  struct MessageHandler
-  {
-    Client* client;
-
-    void operator()(const message::CryptoSetup& message);
-
-    void operator()(const message::Error& message);
-
-    template<typename Any>
-    void operator()(const Any& message);
-  };
 
   template<message::serialization::JsonSerializable T>
   void sendMessage(const T& message);
@@ -49,6 +40,7 @@ private:
 
   QWebSocket _socket;
   std::queue<QJsonObject> _pendingMessages;
+  diffie_hellman::Config _dhConfig;
 };
 
 }

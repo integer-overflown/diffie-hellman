@@ -36,7 +36,15 @@ struct ComputeKey
   JSON_SERIALIZABLE_TYPE(ComputeKey)
 };
 
-using Message = std::variant<Hello, CryptoSetup, Error, ComputeKey>;
+struct IntermediateKey
+{
+  boost::multiprecision::cpp_int key;
+
+  JSON_SERIALIZABLE_TYPE(IntermediateKey)
+};
+
+using Message =
+  std::variant<Hello, CryptoSetup, Error, ComputeKey, IntermediateKey>;
 
 }
 

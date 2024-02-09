@@ -90,4 +90,21 @@ ComputeKey::fromJsonObject([[maybe_unused]] const QJsonObject& object)
   return ComputeKey{};
 }
 
+serialization::DeserializeResult<IntermediateKey>
+IntermediateKey::fromJsonObject(const QJsonObject& object)
+{
+  QString value;
+  PARSE_REQUIRED_FIELD_OR_ELSE_ERROR(value, object, "key", String);
+
+  return IntermediateKey{ .key = boost::multiprecision::cpp_int{
+                            value.toUtf8().constData() } };
+}
+
+serialization::SerializeResult
+IntermediateKey::toJsonObject() const
+{
+  return body("INTERMEDIATE_KEY",
+              { { "key", QString::fromStdString(to_string(key)) } });
+}
+
 }

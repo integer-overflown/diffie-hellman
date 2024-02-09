@@ -10,7 +10,7 @@ struct Config
 {
   BigInt g;
   BigInt n;
-  std::uint64_t exp;
+  std::uint8_t exp;
 };
 
 [[nodiscard]] BigInt calculateKey(const Config& config);

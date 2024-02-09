@@ -68,44 +68,48 @@ Service::handleNewConnection()
     });
 }
 
-template<typename Any>
-void
-Service::MessageHandler::operator()(const Any&) const
+struct Service::MessageHandler
 {
-  qCWarning(logging::service())
-    << "Cannot handle message of type" << Any::SerializedName;
-}
+  Service* service;
+  QWebSocket* connection;
 
-void
-Service::MessageHandler::operator()(const message::Hello& message) const
-{
-  qCDebug(logging::service()) << "Received Hello from" << message.selfId;
-
-  if (!service->registerConnection(connection, message.selfId)) {
-    message::sendError(
-      connection,
-      QStringLiteral("Name '%1' is already registered").arg(message.selfId));
-    return;
+  template<typename Any>
+  void operator()(const Any&) const
+  {
+    qCWarning(logging::service())
+      << "Cannot handle message of type" << Any::SerializedName;
   }
 
-  const auto& config = crypto_config::loadDefault();
-  message::sendMessage(connection,
-                       message::CryptoSetup{ .g = config.g, .n = config.n });
+  void operator()(const message::Hello& message) const
+  {
+    qCDebug(logging::service()) << "Received Hello from" << message.selfId;
 
-  const auto& peers = service->_state.peers;
+    if (!service->registerConnection(connection, message.selfId)) {
+      message::sendError(
+        connection,
+        QStringLiteral("Name '%1' is already registered").arg(message.selfId));
+      return;
+    }
 
-  if (peers.size() < 2) {
-    return;
+    const auto& config = crypto_config::loadDefault();
+    message::sendMessage(connection,
+                         message::CryptoSetup{ .g = config.g, .n = config.n });
+
+    const auto& peers = service->_state.peers;
+
+    if (peers.size() < 2) {
+      return;
+    }
+
+    qCDebug(logging::service())
+      << "Starting handshake for" << peers.size() << "users";
+
+    for (const auto& [peer, socket] : peers) {
+      qCDebug(logging::service()) << "Sending COMPUTE_KEY to" << peer;
+      message::sendMessage(socket, message::ComputeKey{});
+    }
   }
-
-  qCDebug(logging::service())
-    << "Starting handshake for" << peers.size() << "users";
-
-  for (const auto& [peer, socket] : peers) {
-    qCDebug(logging::service()) << "Sending COMPUTE_KEY to" << peer;
-    message::sendMessage(socket, message::ComputeKey{});
-  }
-}
+};
 
 void
 Service::handleMessage(QWebSocket* sender, const QString& payload)

@@ -12,6 +12,7 @@ Q_LOGGING_CATEGORY(client, "app.client")
 }
 
 Client::Client()
+  : _dhConfig{ .exp = crypto_config::PrivateKey::generate() }
 {
   QObject::connect(
     &_socket, &QWebSocket::errorOccurred, this, &Client::errorOccurred);
@@ -55,26 +56,39 @@ Client::connect(const QUrl& serverUrl, const QString& selfId)
   sendMessage(message::Hello{ .selfId = selfId });
 }
 
-template<typename Any>
-void
-Client::MessageHandler::operator()(const Any& message)
+struct Client::MessageHandler
 {
-  qCWarning(logging::client())
-    << "Received unsupported message of type" << Any::SerializedName;
-}
+  Client* client;
 
-void
-Client::MessageHandler::operator()(const message::CryptoSetup& message)
-{
-  qCDebug(logging::client()) << "Received crypto setup message";
-}
+  template<typename Any>
+  void operator()(const Any& message)
+  {
+    qCWarning(logging::client())
+      << "Received unsupported message of type" << Any::SerializedName;
+  }
 
-void
-Client::MessageHandler::operator()(const message::Error& message)
-{
-  qCCritical(logging::client())
-    << "Received error from server:" << message.description;
-}
+  void operator()(const message::CryptoSetup& message)
+  {
+    qCDebug(logging::client()) << "Received CryptoSetup message";
+
+    auto& dh = client->_dhConfig;
+    dh =
+      diffie_hellman::Config{ .g = message.g, .n = message.n, .exp = dh.exp };
+  }
+
+  void operator()(const message::Error& message)
+  {
+    qCCritical(logging::client())
+      << "Received error from server:" << message.description;
+  }
+
+  void operator()(const message::ComputeKey&)
+  {
+    qDebug(logging::client()) << "Received ComputeKey";
+    client->sendMessage(message::IntermediateKey{
+      .key = diffie_hellman::calculateKey(client->_dhConfig) });
+  }
+};
 
 void
 Client::handleIncomingMessage(const QString& payload)
@@ -110,5 +124,4 @@ Client::onConnectionStateChanged(QAbstractSocket::SocketState state)
     _pendingMessages.pop();
   }
 }
-
 }
